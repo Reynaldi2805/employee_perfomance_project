@@ -1,0 +1,108 @@
+version: '3.4'
+
+x-common: &common
+  image: apache/airflow:2.3.4
+  user: "${AIRFLOW_UID:-50000}:0" #user: "${AIRFLOW_UID}:0"
+  env_file: 
+    - .env
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data
+    - ./models:/opt/airflow/models
+    - /var/run/docker.sock:/var/run/docker.sock
+
+x-depends-on: &depends-on
+  depends_on:
+    postgres:
+      condition: service_healthy
+    airflow-init:
+      condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres-m3
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "milestone_3"]
+      interval: 5s
+      retries: 5
+    volumes :
+      #- ./irfan_ddl.sql:/docker-entrypoint-initdb.d/init.sql #sesuai dengan file csv di file irfan_ddl.sql
+      - ./P2M3_reynaldi_evans_adam_data_raw.csv:/dags/P2M3_reynaldi_evans_adam_data_raw.csv  #sesuai dengan file csv di file irfan_ddl.sql
+    env_file:
+      - .env
+
+  scheduler:
+    <<: [*common, *depends-on]
+    # <<: *depends-on
+    container_name: airflow-scheduler-m3
+    command: scheduler
+    restart: on-failure
+    ports:
+      - "8793:8793"
+
+  webserver:
+    <<: [*common, *depends-on]
+    # <<: *depends-on
+    container_name: airflow-webserver-m3
+    restart: always
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+  
+  airflow-init:
+    <<: *common
+    container_name: airflow-init-m3
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /sources/logs /sources/dags /sources/plugins
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        exec /entrypoint airflow version
+
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: elasticsearch-m3
+    restart: always
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+      - xpack.reporting.capture.browser.chromium.disableSandbox=False
+      - xpack.reporting.enabled:False
+    ulimits:
+      memlock:
+        soft: 50000 #-1 Gunakan semua memori atau 262144 = 256mb
+        hard: 50000 #-1
+      nofile:
+        soft: 65536 #atur memori 65536
+        hard: 65536 ##atur memori 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+  kibana:
+    container_name: kibana-m3
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    restart: always
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200    # address of elasticsearch docker container which kibana will connect
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch # kibana will start when elasticsearch has started
+volumes:
+  elasticsearch-data:
+
