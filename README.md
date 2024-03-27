@@ -31,14 +31,3 @@ The project is structured around the following components:
 5. **Analysis and Visualization**: Kibana is utilized to create interactive dashboards and visualizations, allowing stakeholders to explore and interpret employee performance metrics.
 
 6. **ETL Automation**: Airflow orchestrates the ETL processes, automating the extraction, transformation, and loading of data into Elasticsearch, ensuring a consistent and up-to-date analysis environment.
-
-## Getting Started
-
-To get started with the project, follow these steps:
-
-1. Clone the project repository.
-2. Install Docker and Docker Compose if not already installed.
-3. Configure the necessary environment variables and settings.
-4. Build and run the Docker containers using Docker Compose.
-5. Access Kibana to explore the data visualizations and dashboards.
-6. Use Airflow to manage and monitor the ETL workflows.
